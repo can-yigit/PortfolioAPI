@@ -1,0 +1,157 @@
+package handlers
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"PortfolioAPI/database"
+	"PortfolioAPI/models"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+)
+
+func getCDNURL() string {
+	cdnURL := os.Getenv("CDN_URL")
+	if cdnURL == "" {
+		// Standard: eigener Server als CDN
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		cdnURL = "http://localhost:" + port + "/cdn"
+	}
+	return strings.TrimSuffix(cdnURL, "/")
+}
+
+func GetUsers(c *gin.Context) {
+	var users []models.User
+	database.DB.Find(&users)
+	c.JSON(http.StatusOK, users)
+}
+
+func GetUser(c *gin.Context) {
+	var user models.User
+	if err := database.DB.Preload("Blogs").First(&user, "id = ?", c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	c.JSON(http.StatusOK, user)
+}
+
+func CreateUser(c *gin.Context) {
+	name := c.PostForm("name")
+	email := c.PostForm("email")
+	avatarURL := c.PostForm("avatar_url")
+
+	if name == "" || email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name and email are required"})
+		return
+	}
+
+	userID := uuid.New().String()
+
+	user := models.User{
+		ID:    userID,
+		Name:  name,
+		Email: email,
+	}
+
+	// Avatar URL gesetzt? Dann verwenden
+	if avatarURL != "" {
+		user.Avatar = avatarURL
+	}
+
+	// Bild hochgeladen?
+	file, err := c.FormFile("avatar")
+	if err == nil {
+		// User Ordner erstellen
+		userDir := filepath.Join("public", "users", userID)
+		if err := os.MkdirAll(userDir, 0755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user directory"})
+			return
+		}
+
+		// Dateiendung beibehalten
+		ext := filepath.Ext(file.Filename)
+		filename := fmt.Sprintf("avatar%s", ext)
+		filePath := filepath.Join(userDir, filename)
+
+		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save avatar"})
+			return
+		}
+
+		user.Avatar = fmt.Sprintf("%s/users/%s/%s", getCDNURL(), userID, filename)
+	}
+
+	if err := database.DB.Create(&user).Error; err != nil {
+		// Bei Fehler: Ordner wieder löschen falls erstellt
+		os.RemoveAll(filepath.Join("public", "users", userID))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, user)
+}
+
+func UpdateUser(c *gin.Context) {
+	var user models.User
+	if err := database.DB.First(&user, "id = ?", c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	name := c.PostForm("name")
+	email := c.PostForm("email")
+	avatarURL := c.PostForm("avatar_url")
+
+	if name != "" {
+		user.Name = name
+	}
+	if email != "" {
+		user.Email = email
+	}
+	if avatarURL != "" {
+		user.Avatar = avatarURL
+	}
+
+	// Bild hochgeladen?
+	file, err := c.FormFile("avatar")
+	if err == nil {
+		// User Ordner erstellen
+		userDir := filepath.Join("public", "users", user.ID)
+		if err := os.MkdirAll(userDir, 0755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user directory"})
+			return
+		}
+
+		// Alte Avatar-Dateien löschen
+		matches, _ := filepath.Glob(filepath.Join(userDir, "avatar.*"))
+		for _, match := range matches {
+			os.Remove(match)
+		}
+
+		// Dateiendung beibehalten
+		ext := filepath.Ext(file.Filename)
+		filename := fmt.Sprintf("avatar%s", ext)
+		filePath := filepath.Join(userDir, filename)
+
+		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save avatar"})
+			return
+		}
+
+		user.Avatar = fmt.Sprintf("%s/users/%s/%s", getCDNURL(), user.ID, filename)
+	}
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
