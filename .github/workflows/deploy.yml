@@ -1,0 +1,116 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Backend Build
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Backend
+        run: |
+          go mod tidy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o backend main.go
+
+      # Admin Build
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Admin dependencies
+        working-directory: ./admin
+        run: bun install
+
+      - name: Build Admin
+        working-directory: ./admin
+        run: bun run build
+
+      # Upload artifacts
+      - name: Upload Backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-binary
+          path: backend
+
+      - name: Upload Admin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-build
+          path: |
+            admin/.next
+            admin/package.json
+            admin/next.config.js
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: build
+    environment: Production
+    steps:
+      - name: Download Backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-binary
+          path: ./backend-artifact
+
+      - name: Download Admin artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-build
+          path: ./admin-artifact
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to Server
+        run: |
+          scp ./backend-artifact/backend "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/backend.new"
+          
+          tar -czf admin-build.tar.gz -C admin-artifact .
+          scp admin-build.tar.gz "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/admin-build.tar.gz"
+          
+          ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}" << ENDSSH
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            echo "🔄 Stopping services..."
+            pkill -f backend || true
+            pkill -f "bun run start" || true
+            
+            echo "📦 Deploying Backend..."
+            mv backend.new backend
+            chmod +x backend
+            
+            echo "📦 Deploying Admin..."
+            mkdir -p admin
+            tar -xzf admin-build.tar.gz -C admin
+            rm admin-build.tar.gz
+            cd admin
+            bun install --production
+            cd ..
+            
+            echo "🚀 Starting Backend..."
+            nohup ./backend > backend.log 2>&1 &
+            
+            echo "🚀 Starting Admin..."
+            cd admin
+            nohup bun run start > admin.log 2>&1 &
+            
+            echo "✅ Deployment completed!"
+          ENDSSH
