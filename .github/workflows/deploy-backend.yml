@@ -21,8 +21,10 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
-          echo "=== Validating key ==="
-          ssh-keygen -l -f ~/.ssh/id_ed25519 || echo "INVALID KEY FORMAT"
+          eval $(ssh-agent -s)
+          ssh-add ~/.ssh/id_ed25519
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
 
       - name: Deploy Backend
         env:
