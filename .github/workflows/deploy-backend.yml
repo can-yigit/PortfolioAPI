@@ -10,6 +10,7 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
+    environment: Production
     steps:
       - name: Setup SSH
         env:
