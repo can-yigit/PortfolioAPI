@@ -35,6 +35,8 @@ jobs:
 
       - name: Build Admin
         working-directory: ./admin
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
         run: bun run build
 
       - name: Create Admin archive
