@@ -87,7 +87,6 @@ jobs:
           
           ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}" << ENDSSH
             set -e
-            export PATH="\$HOME/.bun/bin:\$PATH"
             cd ${{ secrets.DEPLOY_PATH }}
             
             echo "🔄 Stopping services..."
