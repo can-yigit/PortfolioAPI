@@ -1,0 +1,51 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Backend
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh $SERVER_USER@$SERVER_IP << ENDSSH
+            set -e
+            echo "🚀 Starting deployment..."
+            
+            cd $DEPLOY_PATH
+            
+            echo "📦 Pulling latest changes..."
+            git fetch origin
+            git checkout main
+            git pull origin main
+            
+            echo "📦 Installing Go dependencies..."
+            go mod tidy
+            
+            echo "🔨 Building Go application..."
+            go build -o backend main.go
+            
+            echo "🔄 Restarting application..."
+            pkill -f backend || true
+            nohup ./backend > backend.log 2>&1 &
+            
+            echo "✅ Deployment completed successfully!"
+          ENDSSH
