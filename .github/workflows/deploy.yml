@@ -82,7 +82,7 @@ jobs:
         run: |
           scp ./backend-artifact/backend "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/backend.new"
           
-          tar -czf admin-build.tar.gz -C admin-artifact .
+          tar -czf admin-build.tar.gz -C admin-artifact/admin .
           scp admin-build.tar.gz "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/admin-build.tar.gz"
           
           ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}" << ENDSSH
@@ -99,6 +99,7 @@ jobs:
             
             echo "📦 Deploying Admin..."
             mkdir -p admin
+            rm -rf admin/.next
             tar -xzf admin-build.tar.gz -C admin
             rm admin-build.tar.gz
             cd admin
