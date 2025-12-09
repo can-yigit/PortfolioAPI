@@ -31,7 +31,7 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh -v -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP << ENDSSH
+          ssh -v -i $SERVER_USER@$SERVER_IP << ENDSSH
             set -e
             echo "🚀 Starting deployment..."
             
