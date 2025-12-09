@@ -37,6 +37,9 @@ jobs:
         working-directory: ./admin
         run: bun run build
 
+      - name: Create Admin archive
+        run: tar -czf admin-build.tar.gz -C admin .next package.json next.config.js
+
       # Upload artifacts
       - name: Upload Backend artifact
         uses: actions/upload-artifact@v4
@@ -48,10 +51,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: admin-build
-          path: |
-            admin/.next
-            admin/package.json
-            admin/next.config.js
+          path: admin-build.tar.gz
 
   deploy:
     name: Deploy
@@ -82,8 +82,7 @@ jobs:
         run: |
           scp ./backend-artifact/backend "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/backend.new"
           
-          tar -czf admin-build.tar.gz -C admin-artifact/admin .
-          scp admin-build.tar.gz "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/admin-build.tar.gz"
+          scp ./admin-artifact/admin-build.tar.gz "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_PATH }}/admin-build.tar.gz"
           
           ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}" << ENDSSH
             set -e
