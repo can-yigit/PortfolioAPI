@@ -1,0 +1,208 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Save, FolderKanban } from "lucide-react";
+import { getUsers, getLanguages, createProject, User, Language } from "@/lib/api";
+import ImageUpload from "@/components/ImageUpload";
+import AuthorSelect from "@/components/AuthorSelect";
+import LanguageSelect from "@/components/LanguageSelect";
+import Link from "next/link";
+
+export default function NewProjectPage() {
+  const router = useRouter();
+  
+  const [users, setUsers] = useState<User[]>([]);
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    link: "",
+    language_ids: [] as string[],
+    author_ids: [] as string[],
+  });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [usersData, languagesData] = await Promise.all([
+          getUsers(),
+          getLanguages()
+        ]);
+        setUsers(usersData || []);
+        setLanguages(languagesData || []);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    const data = new FormData();
+    data.append("title", formData.title);
+    data.append("description", formData.description);
+    data.append("link", formData.link);
+    data.append("language_ids", formData.language_ids.join(","));
+    data.append("author_ids", formData.author_ids.join(","));
+    if (imageFile) {
+      data.append("image_file", imageFile);
+    }
+
+    try {
+      await createProject(data);
+      router.push("/projects");
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link 
+            href="/projects"
+            className="w-10 h-10 rounded-full bg-black/[0.04] hover:bg-black/[0.08] flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-black/60" />
+          </Link>
+          <div>
+            <h1 className="text-[24px] font-semibold tracking-tight text-black">Neues Projekt</h1>
+            <p className="text-[13px] text-black/40 mt-0.5">Projekt erstellen</p>
+          </div>
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={saving || !formData.title || !formData.description}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-black text-white text-[13px] font-medium rounded-full hover:bg-black/80 active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {saving ? "Erstellen..." : "Erstellen"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column - Form */}
+        <div className="space-y-5">
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-sm p-6 space-y-5">
+            <div>
+              <label className="block text-[13px] font-medium text-black/60 mb-2">Titel</label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Mein Projekt"
+                className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[16px] font-medium text-black placeholder:text-black/30 focus:outline-none focus:border-black/20 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-black/60 mb-2">Beschreibung</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Projektbeschreibung..."
+                rows={5}
+                className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black placeholder:text-black/30 focus:outline-none focus:border-black/20 transition-colors resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-black/60 mb-2">Link</label>
+              <input
+                type="url"
+                value={formData.link}
+                onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                placeholder="https://github.com/..."
+                className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black placeholder:text-black/30 focus:outline-none focus:border-black/20 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Languages */}
+          <LanguageSelect
+            languages={languages}
+            selectedIds={formData.language_ids}
+            onChange={(ids) => setFormData({ ...formData, language_ids: ids })}
+          />
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-5">
+          {/* Authors */}
+          <AuthorSelect
+            users={users}
+            selectedIds={formData.author_ids}
+            onChange={(ids) => setFormData({ ...formData, author_ids: ids })}
+          />
+
+          {/* Image Upload */}
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-sm p-6">
+            <ImageUpload
+              onFileSelect={setImageFile}
+              label="Projekt Bild"
+            />
+          </div>
+
+          {/* Preview */}
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-black/[0.06]">
+              <span className="text-[13px] font-medium text-black/60">Vorschau</span>
+            </div>
+            <div className="relative h-44 bg-black/[0.04]">
+              {imageFile ? (
+                <img
+                  src={URL.createObjectURL(imageFile)}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <FolderKanban className="w-12 h-12 text-black/10" strokeWidth={1} />
+                </div>
+              )}
+            </div>
+            <div className="p-5">
+              <p className="text-[16px] font-semibold text-black">
+                {formData.title || "Titel eingeben..."}
+              </p>
+              <p className="text-[13px] text-black/50 mt-2 line-clamp-3">
+                {formData.description || "Beschreibung eingeben..."}
+              </p>
+              {formData.language_ids.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {languages.filter(l => formData.language_ids.includes(l.id)).map(lang => (
+                    <span key={lang.id} className="px-2 py-1 rounded-lg bg-black/[0.04] text-[11px] font-medium text-black/50">
+                      {lang.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

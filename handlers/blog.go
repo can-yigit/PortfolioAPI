@@ -15,12 +15,13 @@ import (
 )
 
 func GetBlogs(c *gin.Context) {
-	var blogs []models.Blog
-	category := c.Query("category")
+	blogs := []models.Blog{}
+	categoryID := c.Query("category_id")
 
-	query := database.DB.Preload("Authors")
-	if category != "" && category != "Overview" {
-		query = query.Where("category = ?", category)
+	query := database.DB.Preload("Authors").Preload("Categories")
+	if categoryID != "" {
+		query = query.Joins("JOIN blog_categories ON blog_categories.blog_id = blogs.id").
+			Where("blog_categories.category_id = ?", categoryID)
 	}
 
 	query.Order("pinned DESC, created_at DESC").Find(&blogs)
@@ -29,7 +30,7 @@ func GetBlogs(c *gin.Context) {
 
 func GetBlog(c *gin.Context) {
 	var blog models.Blog
-	if err := database.DB.Preload("Authors").First(&blog, c.Param("id")).Error; err != nil {
+	if err := database.DB.Preload("Authors").Preload("Categories").First(&blog, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Blog not found"})
 		return
 	}
@@ -38,7 +39,7 @@ func GetBlog(c *gin.Context) {
 
 func GetBlogBySlug(c *gin.Context) {
 	var blog models.Blog
-	if err := database.DB.Preload("Authors").Where("slug = ?", c.Param("slug")).First(&blog).Error; err != nil {
+	if err := database.DB.Preload("Authors").Preload("Categories").Where("slug = ?", c.Param("slug")).First(&blog).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Blog not found"})
 		return
 	}
@@ -51,9 +52,9 @@ func CreateBlog(c *gin.Context) {
 	excerpt := c.PostForm("excerpt")
 	content := c.PostForm("content")
 	imageURL := c.PostForm("image")
-	category := c.PostForm("category")
 	pinnedStr := c.PostForm("pinned")
 	authorIDsStr := c.PostForm("author_ids")
+	categoryIDsStr := c.PostForm("category_ids")
 
 	if title == "" || slug == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Title and slug are required"})
@@ -72,17 +73,25 @@ func CreateBlog(c *gin.Context) {
 	}
 
 	blog := models.Blog{
-		Title:    title,
-		Slug:     slug,
-		Excerpt:  excerpt,
-		Content:  content,
-		Image:    imageURL,
-		Category: category,
-		Pinned:   pinnedStr == "true" || pinnedStr == "1",
-		Authors:  authors,
+		Title:   title,
+		Slug:    slug,
+		Excerpt: excerpt,
+		Content: content,
+		Image:   imageURL,
+		Pinned:  pinnedStr == "true" || pinnedStr == "1",
+		Authors: authors,
 	}
 
 	database.DB.Create(&blog)
+
+	// Categories hinzufügen
+	if categoryIDsStr != "" {
+		categoryIDs := strings.Split(categoryIDsStr, ",")
+		var categories []models.Category
+		if err := database.DB.Where("id IN ?", categoryIDs).Find(&categories).Error; err == nil {
+			database.DB.Model(&blog).Association("Categories").Replace(categories)
+		}
+	}
 
 	// Bild hochgeladen?
 	file, err := c.FormFile("image_file")
@@ -106,6 +115,7 @@ func CreateBlog(c *gin.Context) {
 		database.DB.Save(&blog)
 	}
 
+	database.DB.Preload("Authors").Preload("Categories").First(&blog, blog.ID)
 	c.JSON(http.StatusCreated, blog)
 }
 
@@ -122,9 +132,9 @@ func UpdateBlog(c *gin.Context) {
 	excerpt := c.PostForm("excerpt")
 	content := c.PostForm("content")
 	imageURL := c.PostForm("image")
-	category := c.PostForm("category")
 	pinnedStr := c.PostForm("pinned")
 	authorIDsStr := c.PostForm("author_ids")
+	categoryIDsStr := c.PostForm("category_ids")
 
 	if title != "" {
 		blog.Title = title
@@ -140,9 +150,6 @@ func UpdateBlog(c *gin.Context) {
 	}
 	if imageURL != "" {
 		blog.Image = imageURL
-	}
-	if category != "" {
-		blog.Category = category
 	}
 	if pinnedStr != "" {
 		blog.Pinned = pinnedStr == "true" || pinnedStr == "1"
@@ -175,7 +182,7 @@ func UpdateBlog(c *gin.Context) {
 		blog.Image = fmt.Sprintf("%s/blogs/%d/%s", getCDNURL(), blog.ID, filename)
 	}
 
-	// Author IDs verarbeiten (kommasepariert: "uuid1,uuid2")
+	// Author IDs verarbeiten
 	if authorIDsStr != "" {
 		authorIDs := strings.Split(authorIDsStr, ",")
 		var authors []models.User
@@ -183,8 +190,16 @@ func UpdateBlog(c *gin.Context) {
 		database.DB.Model(&blog).Association("Authors").Replace(authors)
 	}
 
+	// Category IDs verarbeiten
+	if categoryIDsStr != "" {
+		categoryIDs := strings.Split(categoryIDsStr, ",")
+		var categories []models.Category
+		database.DB.Where("id IN ?", categoryIDs).Find(&categories)
+		database.DB.Model(&blog).Association("Categories").Replace(categories)
+	}
+
 	database.DB.Save(&blog)
-	database.DB.Preload("Authors").First(&blog, blog.ID)
+	database.DB.Preload("Authors").Preload("Categories").First(&blog, blog.ID)
 	c.JSON(http.StatusOK, blog)
 }
 
@@ -203,6 +218,12 @@ func DeleteBlog(c *gin.Context) {
 	if err := tx.Exec("DELETE FROM blog_authors WHERE blog_id = ?", blogID).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete blog authors"})
+		return
+	}
+
+	if err := tx.Exec("DELETE FROM blog_categories WHERE blog_id = ?", blogID).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete blog categories"})
 		return
 	}
 
