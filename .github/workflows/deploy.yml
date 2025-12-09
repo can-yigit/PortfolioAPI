@@ -87,6 +87,7 @@ jobs:
           
           ssh "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}" << ENDSSH
             set -e
+            export PATH="\$HOME/.bun/bin:\$PATH"
             cd ${{ secrets.DEPLOY_PATH }}
             
             echo "🔄 Stopping services..."
@@ -102,7 +103,7 @@ jobs:
             tar -xzf admin-build.tar.gz -C admin
             rm admin-build.tar.gz
             cd admin
-            bun install --production
+            ~/.bun/bin/bun install --production
             cd ..
             
             echo "🚀 Starting Backend..."
@@ -110,7 +111,7 @@ jobs:
             
             echo "🚀 Starting Admin..."
             cd admin
-            nohup bun run start > admin.log 2>&1 &
+            nohup ~/.bun/bin/bun run start > admin.log 2>&1 &
             
             echo "✅ Deployment completed!"
           ENDSSH
