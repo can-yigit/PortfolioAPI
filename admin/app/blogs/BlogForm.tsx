@@ -20,7 +20,7 @@ export default function BlogForm({ blog, users }: BlogFormProps) {
   const [slug, setSlug] = useState(blog?.slug || '')
   const [excerpt, setExcerpt] = useState(blog?.excerpt || '')
   const [content, setContent] = useState(blog?.content || '')
-  const [category, setCategory] = useState(blog?.category || '')
+  const [category, setCategory] = useState(blog?.categories?.[0]?.name || '')
   const [pinned, setPinned] = useState(blog?.pinned || false)
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>(
     blog?.authors?.map((a) => a.id) || []
