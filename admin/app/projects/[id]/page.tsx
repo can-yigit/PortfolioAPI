@@ -25,6 +25,7 @@ export default function ProjectEditorPage() {
     title: "",
     description: "",
     link: "",
+    created_at: "",
     language_ids: [] as string[],
     author_ids: [] as string[],
   });
@@ -46,6 +47,7 @@ export default function ProjectEditorPage() {
             title: projectData.title,
             description: projectData.description,
             link: projectData.link || "",
+            created_at: projectData.created_at ? projectData.created_at.split('T')[0] : "",
             language_ids: projectData.languages?.map((l) => l.id) || [],
             author_ids: projectData.authors?.map((a) => a.id) || [],
           });
@@ -67,6 +69,7 @@ export default function ProjectEditorPage() {
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("link", formData.link);
+    data.append("created_at", formData.created_at);
     data.append("language_ids", formData.language_ids.join(","));
     data.append("author_ids", formData.author_ids.join(","));
     if (imageFile) {
@@ -181,6 +184,16 @@ export default function ProjectEditorPage() {
                 onChange={(e) => setFormData({ ...formData, link: e.target.value })}
                 placeholder="https://github.com/..."
                 className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black placeholder:text-black/30 focus:outline-none focus:border-black/20 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-black/60 mb-2">Erstellungsdatum</label>
+              <input
+                type="date"
+                value={formData.created_at}
+                onChange={(e) => setFormData({ ...formData, created_at: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black focus:outline-none focus:border-black/20 transition-colors"
               />
             </div>
           </div>

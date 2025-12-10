@@ -21,6 +21,7 @@ export default function NewProjectPage() {
     title: "",
     description: "",
     link: "",
+    created_at: new Date().toISOString().split('T')[0],
     language_ids: [] as string[],
     author_ids: [] as string[],
   });
@@ -52,6 +53,7 @@ export default function NewProjectPage() {
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("link", formData.link);
+    data.append("created_at", formData.created_at);
     data.append("language_ids", formData.language_ids.join(","));
     data.append("author_ids", formData.author_ids.join(","));
     if (imageFile) {
@@ -136,6 +138,16 @@ export default function NewProjectPage() {
                 onChange={(e) => setFormData({ ...formData, link: e.target.value })}
                 placeholder="https://github.com/..."
                 className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black placeholder:text-black/30 focus:outline-none focus:border-black/20 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-black/60 mb-2">Erstellungsdatum</label>
+              <input
+                type="date"
+                value={formData.created_at}
+                onChange={(e) => setFormData({ ...formData, created_at: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black focus:outline-none focus:border-black/20 transition-colors"
               />
             </div>
           </div>

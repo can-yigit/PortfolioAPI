@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"PortfolioAPI/database"
 	"PortfolioAPI/models"
@@ -53,6 +54,7 @@ func CreateProject(c *gin.Context) {
 	description := c.PostForm("description")
 	imageURL := c.PostForm("image")
 	link := c.PostForm("link")
+	createdAtStr := c.PostForm("created_at")
 	languageIDsStr := c.PostForm("language_ids")
 	authorIDsStr := c.PostForm("author_ids")
 
@@ -66,6 +68,14 @@ func CreateProject(c *gin.Context) {
 		Description: description,
 		Image:       imageURL,
 		Link:        link,
+	}
+
+	if createdAtStr != "" {
+		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+			project.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02", createdAtStr); err == nil {
+			project.CreatedAt = t
+		}
 	}
 
 	if languageIDsStr != "" {
@@ -124,6 +134,7 @@ func UpdateProject(c *gin.Context) {
 	description := c.PostForm("description")
 	imageURL := c.PostForm("image")
 	link := c.PostForm("link")
+	createdAtStr := c.PostForm("created_at")
 	languageIDsStr := c.PostForm("language_ids")
 	authorIDsStr := c.PostForm("author_ids")
 
@@ -138,6 +149,13 @@ func UpdateProject(c *gin.Context) {
 	}
 	if link != "" {
 		project.Link = link
+	}
+	if createdAtStr != "" {
+		if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+			project.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02", createdAtStr); err == nil {
+			project.CreatedAt = t
+		}
 	}
 
 	// Bild hochgeladen?
