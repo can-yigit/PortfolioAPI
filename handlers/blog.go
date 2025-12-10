@@ -14,6 +14,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func addBlogCDNPrefix(blog *models.Blog) {
+	if blog.Image != "" && !strings.HasPrefix(blog.Image, "http") {
+		blog.Image = getCDNURL() + blog.Image
+	}
+	for i := range blog.Authors {
+		if blog.Authors[i].Avatar != "" && !strings.HasPrefix(blog.Authors[i].Avatar, "http") {
+			blog.Authors[i].Avatar = getCDNURL() + blog.Authors[i].Avatar
+		}
+	}
+}
+
 func GetBlogs(c *gin.Context) {
 	blogs := []models.Blog{}
 	categoryID := c.Query("category_id")
@@ -25,6 +36,9 @@ func GetBlogs(c *gin.Context) {
 	}
 
 	query.Order("pinned DESC, created_at DESC").Find(&blogs)
+	for i := range blogs {
+		addBlogCDNPrefix(&blogs[i])
+	}
 	c.JSON(http.StatusOK, blogs)
 }
 
@@ -34,6 +48,7 @@ func GetBlog(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Blog not found"})
 		return
 	}
+	addBlogCDNPrefix(&blog)
 	c.JSON(http.StatusOK, blog)
 }
 
@@ -43,6 +58,7 @@ func GetBlogBySlug(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Blog not found"})
 		return
 	}
+	addBlogCDNPrefix(&blog)
 	c.JSON(http.StatusOK, blog)
 }
 
@@ -111,11 +127,12 @@ func CreateBlog(c *gin.Context) {
 			return
 		}
 
-		blog.Image = fmt.Sprintf("%s/blogs/%d/%s", getCDNURL(), blog.ID, filename)
+		blog.Image = fmt.Sprintf("/blogs/%d/%s", blog.ID, filename)
 		database.DB.Save(&blog)
 	}
 
 	database.DB.Preload("Authors").Preload("Categories").First(&blog, blog.ID)
+	addBlogCDNPrefix(&blog)
 	c.JSON(http.StatusCreated, blog)
 }
 
@@ -179,7 +196,7 @@ func UpdateBlog(c *gin.Context) {
 			return
 		}
 
-		blog.Image = fmt.Sprintf("%s/blogs/%d/%s", getCDNURL(), blog.ID, filename)
+		blog.Image = fmt.Sprintf("/blogs/%d/%s", blog.ID, filename)
 	}
 
 	// Author IDs verarbeiten
@@ -200,6 +217,7 @@ func UpdateBlog(c *gin.Context) {
 
 	database.DB.Save(&blog)
 	database.DB.Preload("Authors").Preload("Categories").First(&blog, blog.ID)
+	addBlogCDNPrefix(&blog)
 	c.JSON(http.StatusOK, blog)
 }
 

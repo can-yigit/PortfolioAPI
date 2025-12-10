@@ -17,7 +17,6 @@ import (
 func getCDNURL() string {
 	cdnURL := os.Getenv("CDN_URL")
 	if cdnURL == "" {
-		// Standard: eigener Server als CDN
 		port := os.Getenv("PORT")
 		if port == "" {
 			port = "8080"
@@ -27,9 +26,18 @@ func getCDNURL() string {
 	return strings.TrimSuffix(cdnURL, "/")
 }
 
+func addCDNPrefix(user *models.User) {
+	if user.Avatar != "" && !strings.HasPrefix(user.Avatar, "http") {
+		user.Avatar = getCDNURL() + user.Avatar
+	}
+}
+
 func GetUsers(c *gin.Context) {
 	users := []models.User{}
 	database.DB.Find(&users)
+	for i := range users {
+		addCDNPrefix(&users[i])
+	}
 	c.JSON(http.StatusOK, users)
 }
 
@@ -39,6 +47,7 @@ func GetUser(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
+	addCDNPrefix(&user)
 	c.JSON(http.StatusOK, user)
 }
 
@@ -85,7 +94,7 @@ func CreateUser(c *gin.Context) {
 			return
 		}
 
-		user.Avatar = fmt.Sprintf("%s/users/%s/%s", getCDNURL(), userID, filename)
+		user.Avatar = fmt.Sprintf("/users/%s/%s", userID, filename)
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -95,6 +104,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	addCDNPrefix(&user)
 	c.JSON(http.StatusCreated, user)
 }
 
@@ -145,7 +155,7 @@ func UpdateUser(c *gin.Context) {
 			return
 		}
 
-		user.Avatar = fmt.Sprintf("%s/users/%s/%s", getCDNURL(), user.ID, filename)
+		user.Avatar = fmt.Sprintf("/users/%s/%s", user.ID, filename)
 	}
 
 	if err := database.DB.Save(&user).Error; err != nil {
@@ -153,5 +163,6 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	addCDNPrefix(&user)
 	c.JSON(http.StatusOK, user)
 }

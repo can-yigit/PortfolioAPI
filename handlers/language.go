@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"PortfolioAPI/database"
 	"PortfolioAPI/models"
@@ -12,9 +13,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func addLanguageCDNPrefix(language *models.Language) {
+	if language.Icon != "" && !strings.HasPrefix(language.Icon, "http") {
+		language.Icon = getCDNURL() + language.Icon
+	}
+}
+
 func GetLanguages(c *gin.Context) {
 	languages := []models.Language{}
 	database.DB.Find(&languages)
+	for i := range languages {
+		addLanguageCDNPrefix(&languages[i])
+	}
 	c.JSON(http.StatusOK, languages)
 }
 
@@ -24,6 +34,7 @@ func GetLanguage(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Language not found"})
 		return
 	}
+	addLanguageCDNPrefix(&language)
 	c.JSON(http.StatusOK, language)
 }
 
@@ -61,10 +72,11 @@ func CreateLanguage(c *gin.Context) {
 			return
 		}
 
-		language.Icon = fmt.Sprintf("%s/languages/%s/%s", getCDNURL(), language.ID, filename)
+		language.Icon = fmt.Sprintf("/languages/%s/%s", language.ID, filename)
 		database.DB.Save(&language)
 	}
 
+	addLanguageCDNPrefix(&language)
 	c.JSON(http.StatusCreated, language)
 }
 
@@ -109,10 +121,11 @@ func UpdateLanguage(c *gin.Context) {
 			return
 		}
 
-		language.Icon = fmt.Sprintf("%s/languages/%s/%s", getCDNURL(), language.ID, filename)
+		language.Icon = fmt.Sprintf("/languages/%s/%s", language.ID, filename)
 	}
 
 	database.DB.Save(&language)
+	addLanguageCDNPrefix(&language)
 	c.JSON(http.StatusOK, language)
 }
 

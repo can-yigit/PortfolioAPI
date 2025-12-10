@@ -13,9 +13,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func addProjectCDNPrefix(project *models.Project) {
+	if project.Image != "" && !strings.HasPrefix(project.Image, "http") {
+		project.Image = getCDNURL() + project.Image
+	}
+	for i := range project.Authors {
+		if project.Authors[i].Avatar != "" && !strings.HasPrefix(project.Authors[i].Avatar, "http") {
+			project.Authors[i].Avatar = getCDNURL() + project.Authors[i].Avatar
+		}
+	}
+	for i := range project.Languages {
+		if project.Languages[i].Icon != "" && !strings.HasPrefix(project.Languages[i].Icon, "http") {
+			project.Languages[i].Icon = getCDNURL() + project.Languages[i].Icon
+		}
+	}
+}
+
 func GetProjects(c *gin.Context) {
 	projects := []models.Project{}
 	database.DB.Preload("Languages").Preload("Authors").Find(&projects)
+	for i := range projects {
+		addProjectCDNPrefix(&projects[i])
+	}
 	c.JSON(http.StatusOK, projects)
 }
 
@@ -25,6 +44,7 @@ func GetProject(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
+	addProjectCDNPrefix(&project)
 	c.JSON(http.StatusOK, project)
 }
 
@@ -84,11 +104,12 @@ func CreateProject(c *gin.Context) {
 			return
 		}
 
-		project.Image = fmt.Sprintf("%s/projects/%s/%s", getCDNURL(), project.ID, filename)
+		project.Image = fmt.Sprintf("/projects/%s/%s", project.ID, filename)
 		database.DB.Save(&project)
 	}
 
 	database.DB.Preload("Languages").Preload("Authors").First(&project, "id = ?", project.ID)
+	addProjectCDNPrefix(&project)
 	c.JSON(http.StatusCreated, project)
 }
 
@@ -143,7 +164,7 @@ func UpdateProject(c *gin.Context) {
 			return
 		}
 
-		project.Image = fmt.Sprintf("%s/projects/%s/%s", getCDNURL(), project.ID, filename)
+		project.Image = fmt.Sprintf("/projects/%s/%s", project.ID, filename)
 	}
 
 	// Language IDs verarbeiten
@@ -164,6 +185,7 @@ func UpdateProject(c *gin.Context) {
 
 	database.DB.Save(&project)
 	database.DB.Preload("Languages").Preload("Authors").First(&project, "id = ?", project.ID)
+	addProjectCDNPrefix(&project)
 	c.JSON(http.StatusOK, project)
 }
 
