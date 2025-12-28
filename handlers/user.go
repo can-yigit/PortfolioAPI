@@ -56,8 +56,8 @@ func CreateUser(c *gin.Context) {
 	email := c.PostForm("email")
 	avatarURL := c.PostForm("avatar_url")
 
-	if name == "" || email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Name and email are required"})
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
 		return
 	}
 
@@ -100,7 +100,11 @@ func CreateUser(c *gin.Context) {
 	if err := database.DB.Create(&user).Error; err != nil {
 		// Bei Fehler: Ordner wieder löschen falls erstellt
 		os.RemoveAll(filepath.Join("public", "users", userID))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		if email != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create user"})
+		}
 		return
 	}
 

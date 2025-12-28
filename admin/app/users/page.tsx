@@ -199,8 +199,7 @@ export default function UsersPage() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="max@example.com"
-                    required
+                    placeholder="max@example.com (optional)"
                     className="w-full px-4 py-3 rounded-xl bg-black/[0.03] border border-black/[0.06] text-[15px] text-black placeholder:text-black/30 focus:outline-none focus:border-black/20 focus:ring-0 transition-colors"
                   />
                 </div>
