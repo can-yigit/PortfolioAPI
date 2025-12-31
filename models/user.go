@@ -10,7 +10,7 @@ import (
 type User struct {
 	ID        string    `json:"id" gorm:"type:char(36);primaryKey"`
 	Name      string    `json:"name" gorm:"type:varchar(255);not null"`
-	Email     string    `json:"email" gorm:"type:varchar(255);uniqueIndex"`
+	Email     *string   `json:"email" gorm:"type:varchar(255);uniqueIndex"`
 	Avatar    string    `json:"avatar" gorm:"type:varchar(500)"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

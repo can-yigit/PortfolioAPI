@@ -64,9 +64,13 @@ func CreateUser(c *gin.Context) {
 	userID := uuid.New().String()
 
 	user := models.User{
-		ID:    userID,
-		Name:  name,
-		Email: email,
+		ID:   userID,
+		Name: name,
+	}
+
+	// Email setzen (nur wenn nicht leer)
+	if email != "" {
+		user.Email = &email
 	}
 
 	// Avatar URL gesetzt? Dann verwenden
@@ -126,8 +130,11 @@ func UpdateUser(c *gin.Context) {
 	if name != "" {
 		user.Name = name
 	}
+	// Email setzen: wenn leer, dann nil (erlaubt mehrere Benutzer ohne Email)
 	if email != "" {
-		user.Email = email
+		user.Email = &email
+	} else {
+		user.Email = nil
 	}
 	if avatarURL != "" {
 		user.Avatar = avatarURL
