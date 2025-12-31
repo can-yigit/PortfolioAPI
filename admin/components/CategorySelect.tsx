@@ -60,3 +60,4 @@ export default function CategorySelect({ categories, selectedIds, onChange, labe
     </div>
   );
 }
+

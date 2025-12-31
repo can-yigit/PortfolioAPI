@@ -73,3 +73,4 @@ export default function LanguageSelect({ languages, selectedIds, onChange, label
     </div>
   );
 }
+

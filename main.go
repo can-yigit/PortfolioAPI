@@ -37,6 +37,7 @@ func main() {
 	r.GET("/users/:id", handlers.GetUser)
 	r.POST("/users", handlers.CreateUser)
 	r.PUT("/users/:id", handlers.UpdateUser)
+	r.DELETE("/users/:id", handlers.DeleteUser)
 
 	r.GET("/blogs", handlers.GetBlogs)
 	r.GET("/blogs/:id", handlers.GetBlog)

@@ -70,8 +70,8 @@ func DeleteCategory(c *gin.Context) {
 		return
 	}
 
-	// Erst die Verknüpfungen in project_categories löschen
-	if err := database.DB.Exec("DELETE FROM project_categories WHERE category_id = ?", category.ID).Error; err != nil {
+	// Erst die Verknüpfungen in blog_categories löschen
+	if err := database.DB.Exec("DELETE FROM blog_categories WHERE category_id = ?", category.ID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete category relations"})
 		return
 	}

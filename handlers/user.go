@@ -100,10 +100,10 @@ func CreateUser(c *gin.Context) {
 	if err := database.DB.Create(&user).Error; err != nil {
 		// Bei Fehler: Ordner wieder löschen falls erstellt
 		os.RemoveAll(filepath.Join("public", "users", userID))
-		if email != "" {
+		if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "UNIQUE constraint") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create user"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		}
 		return
 	}
@@ -163,10 +163,45 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	if err := database.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to update user"})
+		if strings.Contains(err.Error(), "Duplicate entry") || strings.Contains(err.Error(), "UNIQUE constraint") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		}
 		return
 	}
 
 	addCDNPrefix(&user)
 	c.JSON(http.StatusOK, user)
+}
+
+func DeleteUser(c *gin.Context) {
+	var user models.User
+	if err := database.DB.First(&user, "id = ?", c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Erst die Verknüpfungen in blog_authors löschen
+	if err := database.DB.Exec("DELETE FROM blog_authors WHERE user_id = ?", user.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user blog relations"})
+		return
+	}
+
+	// Verknüpfungen in project_authors löschen
+	if err := database.DB.Exec("DELETE FROM project_authors WHERE user_id = ?", user.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user project relations"})
+		return
+	}
+
+	// User Ordner löschen falls vorhanden
+	userDir := filepath.Join("public", "users", user.ID)
+	os.RemoveAll(userDir)
+
+	if err := database.DB.Delete(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
 }
